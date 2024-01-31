@@ -9,10 +9,13 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       contents: write
+      actions: write
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get Next Version
         id: semver
@@ -39,5 +42,5 @@ jobs:
           makeLatest: true
           name: ${{ steps.semver.outputs.next }}
           body: ${{ steps.changelog.outputs.changes }}
-          token: ${{ github.token }}
+          token: ${{ secrets.RELEASE_TOKEN }}
           tag: ${{ steps.semver.outputs.next }}

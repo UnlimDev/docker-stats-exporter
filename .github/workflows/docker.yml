@@ -1,8 +1,9 @@
-name: Docker Publish
+name: Docker
 
 on:
   push:
-    tags: [ 'v*.*.*' ]
+    tags:
+      - 'v*.*.*'
   pull_request:
     branches: [ "main" ]
 
