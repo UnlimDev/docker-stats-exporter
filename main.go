@@ -253,6 +253,8 @@ func containerStopped(containerId string) {
     cpuUsageTotalVec.Delete(labels)
     cpuUsageKernelVec.Delete(labels)
     cpuUsageUserVec.Delete(labels)
+
+    cpuPercentage.Delete(labels)
 }
 
 func calculateCPUPercentUnix(stat *TContainerStatistic) float64 {
