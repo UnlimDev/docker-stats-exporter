@@ -41,6 +41,7 @@ var cpuUsageTotalVec *prometheus.GaugeVec
 var cpuUsageKernelVec *prometheus.GaugeVec
 var cpuUsageUserVec *prometheus.GaugeVec
 var cpuUsageSystem *prometheus.GaugeVec
+var cpuPercentage *prometheus.GaugeVec
 
 // Docker API Client
 var cli *client.Client
@@ -198,6 +199,9 @@ func initMetrics() {
 
     cpuUsageUserVec = getContainerVector("cpu_user", "CPU Usage in User Mode")
     registry.MustRegister(cpuUsageUserVec)
+
+    cpuPercentage = getContainerVector("cpu_pcnt", "CPU Usage percentage")
+    registry.MustRegister(cpuPercentage)
 }
 
 func containerStatisticRead(stat *TContainerStatistic) {
@@ -216,6 +220,8 @@ func containerStatisticRead(stat *TContainerStatistic) {
     cpuUsageTotalVec.With(labels).Set(float64(stat.CPUStats.CPUUsage.TotalUsage))
     cpuUsageKernelVec.With(labels).Set(float64(stat.CPUStats.CPUUsage.UsageInKernelmode))
     cpuUsageUserVec.With(labels).Set(float64(stat.CPUStats.CPUUsage.UsageInUsermode))
+
+    cpuPercentage.With(labels).Set(calculateCPUPercentUnix(stat))
 }
 
 func containerStopped(containerId string) {
@@ -247,4 +253,22 @@ func containerStopped(containerId string) {
     cpuUsageTotalVec.Delete(labels)
     cpuUsageKernelVec.Delete(labels)
     cpuUsageUserVec.Delete(labels)
+}
+
+func calculateCPUPercentUnix(stat *TContainerStatistic) float64 {
+    var (
+        cpuPercent = 0.0
+        // calculate the change for the cpu usage of the container in between readings
+        cpuDelta = float64(stat.CPUStats.CPUUsage.TotalUsage) - float64(stat.CPUStatsPre.CPUUsage.TotalUsage)
+        // calculate the change for the entire system between readings
+        systemDelta = float64(stat.CPUStats.SystemUsage) - float64(stat.CPUStatsPre.SystemUsage)
+    )
+
+    if systemDelta > 0.0 && cpuDelta > 0.0 {
+        cpuPercent = (cpuDelta / systemDelta) * 100.0
+        if len(stat.CPUStats.CPUUsage.PercpuUsage) > 0 {
+            cpuPercent *= float64(len(stat.CPUStats.CPUUsage.PercpuUsage))
+        }
+    }
+    return cpuPercent
 }
