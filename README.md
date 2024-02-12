@@ -21,3 +21,16 @@ Inspect the results at http://localhost:9099/metrics
 ## Configuration
 
 No configuration currently supported.
+
+## Security Considerations
+
+Exposing any monitoring metrics was never been a good idea.
+Therefore, consider using private network interfaces to [expose](https://docs.docker.com/network/#published-ports) metrics port, e.g.:
+
+```shell
+docker run \
+        -p 10.0.0.10:9099:9099 \
+        -v "/var/run/docker.sock:/var/run/docker.sock" \
+        unlimdev/docker-stats-exporter
+```
+
