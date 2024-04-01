@@ -1,6 +1,6 @@
 module docker-stats-exporter
 
-go 1.21
+go 1.22.1
 
 require github.com/docker/docker v23.0.7+incompatible
 
