@@ -4,6 +4,7 @@ import (
     "context"
     "fmt"
     "github.com/docker/docker/api/types"
+    "github.com/docker/docker/api/types/filters"
     "github.com/docker/docker/client"
     "github.com/prometheus/client_golang/prometheus"
     "github.com/prometheus/client_golang/prometheus/promhttp"
@@ -11,6 +12,7 @@ import (
     "net/http"
     "os"
     "os/signal"
+    "strings"
     "syscall"
     "time"
 )
@@ -78,8 +80,7 @@ func main() {
     go func(srv *http.Server) {
         log.Println("Start scrape server on port:", defaultHttpPort)
         if sErr := srv.ListenAndServe(); sErr != nil {
-            log.Println(sErr)
-            //log.Fatal("Can not start http server:", sErr)
+            log.Fatal("Can not start http server:", sErr)
         }
     }(httpServer)
 
@@ -95,6 +96,17 @@ func main() {
 
     var updTime time.Time
 
+    // Process container filters
+    containersFilter := filters.NewArgs()
+
+    for _, label := range strings.Split(os.Getenv("DOCKER_STATS_FILTER_LABELS"), " ") {
+        if label == "" {
+            continue
+        }
+        log.Println("Filter containers by label:", label)
+        containersFilter.Add("label", label)
+    }
+
     for {
         select {
         case <-chStop:
@@ -109,8 +121,10 @@ func main() {
         }
         updTime = time.Now()
 
-        // TODO: configurable containers list
-        containerList, err := cli.ContainerList(context.Background(), types.ContainerListOptions{All: false})
+        containerList, err := cli.ContainerList(context.Background(), types.ContainerListOptions{
+            All:     false,
+            Filters: containersFilter,
+        })
         if err != nil {
             panic(fmt.Sprintf("Error getting container list: %s", err))
         }
