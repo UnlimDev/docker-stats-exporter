@@ -18,6 +18,7 @@ type TContainerStatistic struct {
     CPUStatsPre  types.CPUStats                `json:"precpu_stats"`
     MemoryStats  types.MemoryStats             `json:"memory_stats"`
     Networks     map[string]types.NetworkStats `json:"networks"`
+    Labels       map[string]string
 }
 
 type TClbOnStatistic func(stat *TContainerStatistic)

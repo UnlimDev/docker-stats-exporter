@@ -11,9 +11,10 @@ import (
 )
 
 type TContainerMonitor struct {
-    Id   string         // Container ID
-    Name string         // Container Name
-    cli  *client.Client // Docker Client
+    Id     string            // Container ID
+    Name   string            // Container Name
+    Labels map[string]string // Container labels (run-time)
+    cli    *client.Client    // Docker Client
 
     stop bool // thread control flag
 
@@ -66,6 +67,12 @@ func (m *TContainerMonitor) init() error {
     } else {
         m.cli = cli
     }
+
+    if containerInfo, err := m.cli.ContainerInspect(context.Background(), m.Id); err != nil {
+        return err
+    } else {
+        m.Labels = containerInfo.Config.Labels
+    }
     return nil
 }
 
@@ -94,6 +101,8 @@ func (m *TContainerMonitor) readStream() {
         if m.Name == "" {
             m.Name = statistic.Name
         }
+
+        statistic.Labels = m.Labels
 
         if m.OnStatRead != nil {
             go m.OnStatRead(statistic)

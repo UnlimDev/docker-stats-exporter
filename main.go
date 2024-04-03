@@ -12,6 +12,7 @@ import (
     "net/http"
     "os"
     "os/signal"
+    "regexp"
     "strings"
     "syscall"
     "time"
@@ -32,6 +33,9 @@ const (
 var httpServer *http.Server
 var statsThreads *ThreadList
 
+var labelRegex = regexp.MustCompile("[\\W-]")
+var scrapeLabels []string
+
 var registry *prometheus.Registry
 var containersCount *prometheus.GaugeVec
 
@@ -48,7 +52,29 @@ var cpuPercentage *prometheus.GaugeVec
 // Docker API Client
 var cli *client.Client
 
-func getContainerVector(name string, description string) *prometheus.GaugeVec {
+func getLabels(normalize bool) []string {
+    labels := strings.Split(strings.TrimSpace(os.Getenv("DOCKER_STATS_LABELS_SCRAPE")), ",")
+
+    var res []string
+    for _, lbl := range labels {
+        if lbl == "" {
+            continue
+        }
+
+        if normalize {
+            res = append(res, labelRegex.ReplaceAllLiteralString(lbl, "_"))
+        } else {
+            res = append(res, lbl)
+        }
+    }
+
+    // TODO: optionally exclude ID from list
+    res = append([]string{"id", "name"}, res...)
+
+    return res
+}
+
+func getContainerVector(name string, description string, labels []string) *prometheus.GaugeVec {
     return prometheus.NewGaugeVec(
         prometheus.GaugeOpts{
             Namespace: metricNameSpace,
@@ -56,10 +82,7 @@ func getContainerVector(name string, description string) *prometheus.GaugeVec {
             Name:      name,
             Help:      description,
         },
-        []string{
-            "id",
-            "name",
-        },
+        labels,
     )
 }
 
@@ -92,6 +115,7 @@ func main() {
     }
 
     statsThreads = new(ThreadList)
+    scrapeLabels = getLabels(false)
     initMetrics()
 
     var updTime time.Time
@@ -185,6 +209,8 @@ func stopProgram() {
 }
 
 func initMetrics() {
+    labels := getLabels(true)
+
     containersCount = prometheus.NewGaugeVec(
         prometheus.GaugeOpts{
             Namespace: metricNameSpace,
@@ -196,32 +222,48 @@ func initMetrics() {
     )
     registry.MustRegister(containersCount)
 
-    memUsageVec = getContainerVector("memory_usage", "Actual value of memory usage by container")
+    memUsageVec = getContainerVector("memory_usage", "Actual value of memory usage by container", labels)
     registry.MustRegister(memUsageVec)
 
-    memLimitVec = getContainerVector("memory_limit", "The limit of memory container can use")
+    memLimitVec = getContainerVector("memory_limit", "The limit of memory container can use", labels)
     registry.MustRegister(memLimitVec)
 
-    cpuUsageSystem = getContainerVector("cpu_system", "CPU System Usage")
+    cpuUsageSystem = getContainerVector("cpu_system", "CPU System Usage", labels)
     registry.MustRegister(cpuUsageSystem)
 
-    cpuUsageTotalVec = getContainerVector("cpu_total", "CPU Usage Total")
+    cpuUsageTotalVec = getContainerVector("cpu_total", "CPU Usage Total", labels)
     registry.MustRegister(cpuUsageTotalVec)
 
-    cpuUsageKernelVec = getContainerVector("cpu_kernel", "CPU Usage in Kernel Mode")
+    cpuUsageKernelVec = getContainerVector("cpu_kernel", "CPU Usage in Kernel Mode", labels)
     registry.MustRegister(cpuUsageKernelVec)
 
-    cpuUsageUserVec = getContainerVector("cpu_user", "CPU Usage in User Mode")
+    cpuUsageUserVec = getContainerVector("cpu_user", "CPU Usage in User Mode", labels)
     registry.MustRegister(cpuUsageUserVec)
 
-    cpuPercentage = getContainerVector("cpu_pcnt", "CPU Usage percentage")
+    cpuPercentage = getContainerVector("cpu_pcnt", "CPU Usage percentage", labels)
     registry.MustRegister(cpuPercentage)
 }
 
 func containerStatisticRead(stat *TContainerStatistic) {
-    labels := prometheus.Labels{
-        "id":   stat.Id[0:12],
-        "name": stat.Name,
+    labels := make(map[string]string)
+
+    for _, labelName := range scrapeLabels {
+        if labelName == "id" {
+            labels["id"] = stat.Id[0:12]
+            continue
+        }
+        if labelName == "name" {
+            labels["name"] = strings.Replace(stat.Name, "/", "", 1) // remove leading slash
+            continue
+        }
+
+        promLabel := labelRegex.ReplaceAllLiteralString(labelName, "_")
+
+        if _, ok := stat.Labels[labelName]; ok {
+            labels[promLabel] = stat.Labels[labelName]
+        } else {
+            labels[promLabel] = ""
+        }
     }
 
     memUsageVec.With(labels).Set(float64(stat.MemoryStats.Usage))

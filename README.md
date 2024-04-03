@@ -22,7 +22,7 @@ Inspect the results at http://localhost:9099/metrics
 
 ### Filter monitored containers
 
-Available since: v0.1.0
+**Available since:** `v0.1.0`
 
 The environment variable `DOCKER_STATS_FILTER_LABELS` allows filter containers with specific [labels](https://docs.docker.com/reference/cli/docker/container/run/#label) to monitor.
 
@@ -49,6 +49,23 @@ docker run \
         -v "/var/run/docker.sock:/var/run/docker.sock" \
         unlimdev/docker-stats-exporter
 ```
+
+### Scrape container labels
+
+**Available since:** `v0.2.0`
+
+It is possible to use particular container labels as metrics labels.
+To do so, pass the environment variable `DOCKER_STATS_LABELS_SCRAPE` with value of comma separated list of label names:
+
+```shell
+docker run \
+        -e "DOCKER_STATS_LABELS_SCRAPE=com.mydomain.service" \
+        -v "/var/run/docker.sock:/var/run/docker.sock" \
+        unlimdev/docker-stats-exporter
+
+```
+
+**NOTE:** Prometheus doesn't allow using chars other than `[a-z0-9_]` for label names, therefore the label name will be adjusted, e.g.: `com.mydomain.service` => `com_mydomain_service` 
 
 ## Security Considerations
 
