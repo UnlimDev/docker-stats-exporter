@@ -114,8 +114,8 @@ func main() {
         cli = c
         log.Println("[INFO] Docker Client version:", cli.ClientVersion())
 
-        if version, err := cli.ServerVersion(context.Background()); err != nil {
-            log.Println("Error getting server version:", err)
+        if version, er := cli.ServerVersion(context.Background()); er != nil {
+            log.Println("Error getting server version:", er)
         } else {
             log.Println("[INFO] Docker Server Version:", version.Version, "(", version.APIVersion, ")")
         }
@@ -162,13 +162,13 @@ func main() {
 
         containersCount.With(prometheus.Labels{}).Set(float64(len(containerList)))
 
-        for _, container := range containerList {
-            if statsThreads.Exists(container.ID) {
+        for _, cont := range containerList {
+            if statsThreads.Exists(cont.ID) {
                 continue
             }
 
             mon := new(TContainerMonitor)
-            mon.Id = container.ID
+            mon.Id = cont.ID
             mon.OnStatRead = containerStatisticRead
             mon.OnRemove = containerStopped
 
@@ -176,10 +176,10 @@ func main() {
                 log.Println("Error executing container monitor:", e)
                 continue
             }
-            if e := statsThreads.Put(container.ID, mon); e != nil {
+            if e := statsThreads.Put(cont.ID, mon); e != nil {
                 log.Println("Error adding thread to list: ", e)
             }
-            log.Println("Start monitoring for container:", container.ID[0:12])
+            log.Println("Start monitoring for container:", cont.ID[0:12])
         }
         // Stop monitoring removed containers
         for _, key := range statsThreads.GetKeys() {
@@ -323,7 +323,7 @@ func deleteLabeledMetric(labels prometheus.Labels, vectors ...*prometheus.GaugeV
         if vector == nil {
             continue
         }
-        if !vector.Delete(labels) {
+        if vector.DeletePartialMatch(labels) <= 0 {
             log.Println("[WARN] Metric with labels hasn't been deleted:", labels)
         }
     }
