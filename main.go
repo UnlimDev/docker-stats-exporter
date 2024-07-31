@@ -3,7 +3,7 @@ package main
 import (
     "context"
     "fmt"
-    "github.com/docker/docker/api/types"
+    "github.com/docker/docker/api/types/container"
     "github.com/docker/docker/api/types/filters"
     "github.com/docker/docker/client"
     "github.com/prometheus/client_golang/prometheus"
@@ -112,6 +112,13 @@ func main() {
         panic(err)
     } else {
         cli = c
+        log.Println("[INFO] Docker Client version:", cli.ClientVersion())
+
+        if version, err := cli.ServerVersion(context.Background()); err != nil {
+            log.Println("Error getting server version:", err)
+        } else {
+            log.Println("[INFO] Docker Server Version:", version.Version, "(", version.APIVersion, ")")
+        }
     }
 
     statsThreads = new(ThreadList)
@@ -145,7 +152,7 @@ func main() {
         }
         updTime = time.Now()
 
-        containerList, err := cli.ContainerList(context.Background(), types.ContainerListOptions{
+        containerList, err := cli.ContainerList(context.Background(), container.ListOptions{
             All:     false,
             Filters: containersFilter,
         })
@@ -195,7 +202,6 @@ func main() {
 }
 
 func stopProgram() {
-    log.Println("[DEBUG] Stop container monitoring threads")
     statsThreads.StopAll()
 
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
