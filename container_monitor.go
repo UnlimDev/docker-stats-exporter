@@ -34,7 +34,13 @@ func (m *TContainerMonitor) GetOpt(name string) *TOpt {
             Name:  "name",
             Value: m.Name,
         }
+    case "labels":
+        return &TOpt{
+            Name:  "labels",
+            Value: m.Labels,
+        }
     }
+
     return nil
 }
 

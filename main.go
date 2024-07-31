@@ -281,6 +281,8 @@ func containerStatisticRead(stat *TContainerStatistic) {
 }
 
 func containerStopped(containerId string) {
+    log.Println("Stop container monitoring:", containerId[0:12])
+
     thread, found := statsThreads.Get(containerId)
     if !found {
         log.Println("Container with ID is not monitored:", containerId)
@@ -291,26 +293,34 @@ func containerStopped(containerId string) {
         log.Println("Error stopping container monitor:", containerId, er)
     }
     statsThreads.Del(containerId)
-    log.Println("Stop container monitoring:", containerId[0:12])
 
     // Clear container metrics
     name := thread.GetOpt("name")
-
     labels := prometheus.Labels{
         "id":   containerId[0:12],
-        "name": name.Value.(string),
+        "name": strings.Replace(name.Value.(string), "/", "", 1),
     }
 
-    memUsageVec.Delete(labels)
-    memLimitVec.Delete(labels)
+    deleteLabeledMetric(labels,
+        memUsageVec,
+        memLimitVec,
+        cpuUsageSystem,
+        cpuUsageKernelVec,
+        cpuUsageUserVec,
+        cpuUsageTotalVec,
+        cpuPercentage,
+    )
+}
 
-    cpuUsageSystem.Delete(labels)
-
-    cpuUsageTotalVec.Delete(labels)
-    cpuUsageKernelVec.Delete(labels)
-    cpuUsageUserVec.Delete(labels)
-
-    cpuPercentage.Delete(labels)
+func deleteLabeledMetric(labels prometheus.Labels, vectors ...*prometheus.GaugeVec) {
+    for _, vector := range vectors {
+        if vector == nil {
+            continue
+        }
+        if !vector.Delete(labels) {
+            log.Println("[WARN] Metric with labels hasn't been deleted:", labels)
+        }
+    }
 }
 
 func calculateCPUPercentUnix(stat *TContainerStatistic) float64 {
