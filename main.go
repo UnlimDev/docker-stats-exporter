@@ -103,8 +103,10 @@ func main() {
     // Scrape Handler
     registry = prometheus.NewRegistry()
     handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
-
     http.Handle("/metrics", handler)
+
+    http.Handle("/", http.HandlerFunc(showIndexPage))
+
     httpServer = &http.Server{
         Addr:    fmt.Sprintf(":%d", defaultHttpPort),
         Handler: nil,
@@ -386,4 +388,9 @@ func calculateCPUPercentUnix(stat *TContainerStatistic) float64 {
         }
     }
     return cpuPercent
+}
+
+func showIndexPage(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprint(w, "<h1>docker-stats-exporter</h1><hr>")
+    fmt.Fprint(w, "<p>Light-weight Prometheus exporter for Docker stats <a href=\"/metrics\">metrics</a></p>")
 }
