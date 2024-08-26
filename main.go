@@ -49,6 +49,16 @@ var cpuUsageUserVec *prometheus.GaugeVec
 var cpuUsageSystem *prometheus.GaugeVec
 var cpuPercentage *prometheus.GaugeVec
 
+var netRxBytesVec *prometheus.GaugeVec
+var netRxPacketsVec *prometheus.GaugeVec
+var netRxErrorVec *prometheus.GaugeVec
+var netRxDropVec *prometheus.GaugeVec
+
+var netTxBytesVec *prometheus.GaugeVec
+var netTxPacketsVec *prometheus.GaugeVec
+var netTxErrorVec *prometheus.GaugeVec
+var netTxDropVec *prometheus.GaugeVec
+
 // Docker API Client
 var cli *client.Client
 
@@ -248,6 +258,20 @@ func initMetrics() {
 
     cpuPercentage = getContainerVector("cpu_pcnt", "CPU Usage percentage", labels)
     registry.MustRegister(cpuPercentage)
+
+    netLabels := append(labels, "iface")
+
+    netRxBytesVec = getContainerVector("rx_bytes", "Received Bytes", netLabels)
+    netRxPacketsVec = getContainerVector("rx_packets", "Received Packets", netLabels)
+    netRxErrorVec = getContainerVector("rx_error", "Received Errors", netLabels)
+    netRxDropVec = getContainerVector("rx_drop", "Incoming packets dropped", netLabels)
+    registry.MustRegister(netRxBytesVec, netRxPacketsVec, netRxErrorVec, netRxDropVec)
+
+    netTxBytesVec = getContainerVector("tx_bytes", "Transmitted Bytes", netLabels)
+    netTxPacketsVec = getContainerVector("tx_packets", "Transmitted Packets", netLabels)
+    netTxErrorVec = getContainerVector("tx_error", "Transmission Errors", netLabels)
+    netTxDropVec = getContainerVector("tx_drop", "Outgoing packets dropped", netLabels)
+    registry.MustRegister(netTxBytesVec, netTxPacketsVec, netTxErrorVec, netTxDropVec)
 }
 
 func containerStatisticRead(stat *TContainerStatistic) {
@@ -284,6 +308,23 @@ func containerStatisticRead(stat *TContainerStatistic) {
     cpuUsageUserVec.With(labels).Set(float64(stat.CPUStats.CPUUsage.UsageInUsermode))
 
     cpuPercentage.With(labels).Set(calculateCPUPercentUnix(stat))
+
+    for iface, netStat := range stat.Networks {
+        // Add extra label with interface name
+        labels["iface"] = iface
+
+        netRxBytesVec.With(labels).Set(float64(netStat.RxBytes))
+        netRxPacketsVec.With(labels).Set(float64(netStat.RxPackets))
+        netRxErrorVec.With(labels).Set(float64(netStat.RxErrors))
+        netRxDropVec.With(labels).Set(float64(netStat.RxDropped))
+
+        netTxBytesVec.With(labels).Set(float64(netStat.TxBytes))
+        netTxPacketsVec.With(labels).Set(float64(netStat.TxPackets))
+        netTxErrorVec.With(labels).Set(float64(netStat.TxErrors))
+        netTxDropVec.With(labels).Set(float64(netStat.TxDropped))
+
+        // TODO: Add rx/tx bps/pps
+    }
 }
 
 func containerStopped(containerId string) {
