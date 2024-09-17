@@ -120,7 +120,7 @@ func main() {
     }(httpServer)
 
     // Init master docker API client
-    if c, err := client.NewClientWithOpts(client.FromEnv); err != nil {
+    if c, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation()); err != nil {
         panic(err)
     } else {
         cli = c

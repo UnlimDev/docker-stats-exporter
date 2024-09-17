@@ -68,16 +68,16 @@ func (m *TContainerMonitor) init() error {
         return errors.New("configuration error: container ID must be set")
     }
 
-    if cli, err := client.NewClientWithOpts(client.FromEnv); err != nil {
+    if c, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation()); err != nil {
         return err
     } else {
-        m.cli = cli
+        m.cli = c
     }
 
-    if containerInfo, err := m.cli.ContainerInspect(context.Background(), m.Id); err != nil {
+    if info, err := m.cli.ContainerInspect(context.Background(), m.Id); err != nil {
         return err
     } else {
-        m.Labels = containerInfo.Config.Labels
+        m.Labels = info.Config.Labels
     }
     return nil
 }
